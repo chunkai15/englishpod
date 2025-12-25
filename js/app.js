@@ -38,6 +38,7 @@ class EnglishPodApp {
   async init() {
     await this.loadLessons();
     this.setupEventListeners();
+    this.setupResponsiveFeatures();
     this.populateFilters();
     this.renderLessons();
     this.updateStats();
@@ -48,6 +49,144 @@ class EnglishPodApp {
       this.selectLesson(savedLessonId);
     } else if (this.lessons.length) {
       this.selectLesson(this.lessons[0].id);
+    }
+  }
+
+  /**
+   * Setup responsive features for mobile devices
+   */
+  setupResponsiveFeatures() {
+    // Prevent double-tap zoom on buttons
+    const buttons = document.querySelectorAll('button, .btn-control, .lesson-item');
+    buttons.forEach(btn => {
+      btn.style.touchAction = 'manipulation';
+    });
+
+    // Auto-scroll to content on mobile when lesson is selected
+    if (window.innerWidth <= 768) {
+      this.enableMobileAutoScroll = true;
+    }
+
+    // Setup mobile menu toggle
+    this.setupMobileMenu();
+
+    // Handle orientation change
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => {
+        this.adjustLayoutForOrientation();
+      }, 100);
+    });
+
+    // Handle window resize
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        this.handleResize();
+      }, 250);
+    });
+  }
+
+  /**
+   * Setup mobile menu toggle functionality
+   */
+  setupMobileMenu() {
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    if (!menuToggle || !sidebar || !overlay) return;
+
+    // Toggle menu
+    menuToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleMobileMenu();
+    });
+
+    // Close menu when clicking overlay
+    overlay.addEventListener('click', () => {
+      this.closeMobileMenu();
+    });
+
+    // Close menu when selecting a lesson on mobile
+    sidebar.addEventListener('click', (e) => {
+      if (e.target.closest('.lesson-item') && window.innerWidth <= 768) {
+        setTimeout(() => {
+          this.closeMobileMenu();
+        }, 300);
+      }
+    });
+
+    // Close menu on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && sidebar.classList.contains('active')) {
+        this.closeMobileMenu();
+      }
+    });
+  }
+
+  /**
+   * Toggle mobile menu
+   */
+  toggleMobileMenu() {
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    if (!sidebar || !overlay) return;
+
+    const isActive = sidebar.classList.contains('active');
+
+    if (isActive) {
+      this.closeMobileMenu();
+    } else {
+      sidebar.classList.add('active');
+      overlay.classList.add('active');
+      menuToggle?.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  /**
+   * Close mobile menu
+   */
+  closeMobileMenu() {
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    if (!sidebar || !overlay) return;
+
+    sidebar.classList.remove('active');
+    overlay.classList.remove('active');
+    menuToggle?.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  /**
+   * Adjust layout based on orientation
+   */
+  adjustLayoutForOrientation() {
+    const sidebar = document.querySelector('.sidebar');
+    if (window.innerHeight < 500 && window.innerWidth > window.innerHeight) {
+      // Landscape mode on mobile
+      if (sidebar) sidebar.style.maxHeight = '150px';
+    } else {
+      // Portrait mode
+      if (sidebar) sidebar.style.maxHeight = '';
+    }
+  }
+
+  /**
+   * Handle window resize
+   */
+  handleResize() {
+    const isMobile = window.innerWidth <= 768;
+    this.enableMobileAutoScroll = isMobile;
+    
+    // Close mobile menu if resizing to desktop
+    if (window.innerWidth > 768) {
+      this.closeMobileMenu();
     }
   }
 
@@ -239,6 +378,16 @@ class EnglishPodApp {
     this.lessonTitleEl.textContent = lesson.title;
     this.lessonMetaEl.textContent = `${lesson.level} • ${lesson.category}`;
     this.renderLessons(); // Re-render to highlight active lesson
+
+    // Auto-scroll to content on mobile
+    if (this.enableMobileAutoScroll && window.innerWidth <= 768) {
+      setTimeout(() => {
+        const playerSection = document.querySelector('.player-section');
+        if (playerSection) {
+          playerSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
 
     // Load audio with resume capability
     this.audioPlayer?.reset();
