@@ -1,0 +1,8 @@
+node_modules
+.git
+*.log
+.DS_Store
+Thumbs.db
+generate-subtitles.js
+generate-lessons-with-title.js
+SUBTITLE_GENERATION.md

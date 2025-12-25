@@ -1,0 +1,548 @@
+/**
+ * Main Application Module
+ * Handles lesson loading, filtering, and UI interactions
+ */
+
+class EnglishPodApp {
+  constructor() {
+    this.lessons = [];
+    this.filteredLessons = [];
+    this.currentLesson = null;
+
+    // DOM elements
+    this.lessonListEl = document.getElementById("lessonList");
+    this.lessonTitleEl = document.getElementById("lessonTitle");
+    this.lessonMetaEl = document.getElementById("lessonMeta");
+    this.scriptContentEl = document.getElementById("scriptContent");
+    this.levelFilterEl = document.getElementById("levelFilter");
+    this.categoryFilterEl = document.getElementById("categoryFilter");
+    this.clearFiltersBtn = document.getElementById("clearFilters");
+    this.lessonCountEl = document.getElementById("lessonCount");
+    this.totalLessonsEl = document.getElementById("totalLessons");
+    this.toggleTranscriptBtn = document.getElementById("toggleTranscript");
+
+    // Use global singletons from state.js and player.js
+    this.stateManager = typeof stateManager !== "undefined" ? stateManager : null;
+    this.audioPlayer = typeof audioPlayer !== "undefined" ? audioPlayer : null;
+    this.subtitleSync = typeof subtitleSync !== "undefined" ? subtitleSync : null;
+
+    // Track transcript line elements for highlighting
+    this.transcriptLineElements = [];
+
+    this.init();
+  }
+
+  /**
+   * Initialize app: load lessons and set up event listeners
+   */
+  async init() {
+    await this.loadLessons();
+    this.setupEventListeners();
+    this.populateFilters();
+    this.renderLessons();
+    this.updateStats();
+
+    // Restore previously selected lesson if exists
+    const savedLessonId = this.stateManager?.getCurrentLessonId();
+    if (savedLessonId && this.lessons.find((l) => l.id === savedLessonId)) {
+      this.selectLesson(savedLessonId);
+    } else if (this.lessons.length) {
+      this.selectLesson(this.lessons[0].id);
+    }
+  }
+
+  /**
+   * Load lessons from lessons.json
+   */
+  async loadLessons() {
+    try {
+      const response = await fetch("lessons.json");
+      if (!response.ok) throw new Error("Failed to fetch lessons");
+      this.lessons = await response.json();
+      this.filteredLessons = [...this.lessons];
+    } catch (error) {
+      console.error("Error loading lessons:", error);
+      this.lessonListEl.innerHTML =
+        '<p class="error">Failed to load lessons. Please refresh the page.</p>';
+    }
+  }
+
+  /**
+   * Set up filter and other event listeners
+   */
+  setupEventListeners() {
+    this.levelFilterEl.addEventListener("change", () => this.filterLessons());
+    this.categoryFilterEl.addEventListener("change", () => this.filterLessons());
+    this.clearFiltersBtn.addEventListener("click", () => this.clearAllFilters());
+    if (this.toggleTranscriptBtn) {
+      this.toggleTranscriptBtn.addEventListener("click", () =>
+        this.toggleTranscript()
+      );
+    }
+  }
+
+  /**
+   * Clear all active filters
+   */
+  clearAllFilters() {
+    this.levelFilterEl.value = "";
+    this.categoryFilterEl.value = "";
+    this.filterLessons();
+  }
+
+  /**
+   * Show / hide transcript area for focused listening.
+   */
+  toggleTranscript() {
+    const section = document.querySelector(".script-section");
+    if (!section || !this.toggleTranscriptBtn) return;
+
+    const isHidden = section.classList.toggle("is-collapsed");
+    this.scriptContentEl.style.display = isHidden ? "none" : "flex";
+    this.toggleTranscriptBtn.textContent = isHidden ? "Show" : "Hide";
+  }
+
+  /**
+   * Populate filter dropdowns from lesson data
+   */
+  populateFilters() {
+    // Get unique levels
+    const levels = [...new Set(this.lessons.map((l) => l.level))].sort();
+    levels.forEach((level) => {
+      const option = document.createElement("option");
+      option.value = level;
+      option.textContent = level;
+      this.levelFilterEl.appendChild(option);
+    });
+
+    // Get unique categories
+    const categories = [...new Set(this.lessons.map((l) => l.category))].sort();
+    categories.forEach((category) => {
+      const option = document.createElement("option");
+      option.value = category;
+      option.textContent = category;
+      this.categoryFilterEl.appendChild(option);
+    });
+  }
+
+  /**
+   * Filter lessons based on selected filters
+   */
+  filterLessons() {
+    const level = this.levelFilterEl.value;
+    const category = this.categoryFilterEl.value;
+
+    this.filteredLessons = this.lessons.filter((lesson) => {
+      return (!level || lesson.level === level) && (!category || lesson.category === category);
+    });
+
+    this.renderLessons();
+  }
+
+  /**
+   * Update stats display
+   */
+  updateStats() {
+    if (this.totalLessonsEl) {
+      this.totalLessonsEl.textContent = `${this.lessons.length} lessons`;
+    }
+    if (this.lessonCountEl) {
+      this.lessonCountEl.textContent = this.filteredLessons.length;
+    }
+  }
+
+  /**
+   * Render lesson list with grouping by level
+   */
+  renderLessons() {
+    this.lessonListEl.innerHTML = "";
+
+    if (this.filteredLessons.length === 0) {
+      this.lessonListEl.innerHTML = '<p class="loading">No lessons found</p>';
+      this.updateStats();
+      return;
+    }
+
+    // Group lessons by level
+    const grouped = {};
+    this.filteredLessons.forEach((lesson) => {
+      const level = lesson.level || "Unknown";
+      if (!grouped[level]) {
+        grouped[level] = [];
+      }
+      grouped[level].push(lesson);
+    });
+
+    // Render each group
+    Object.keys(grouped).sort().forEach((level) => {
+      const groupHeader = document.createElement("div");
+      groupHeader.className = "lesson-group-header";
+      groupHeader.textContent = level;
+      this.lessonListEl.appendChild(groupHeader);
+
+      grouped[level].forEach((lesson) => {
+        const lessonEl = document.createElement("div");
+        const isCompleted = this.stateManager?.isLessonCompleted(lesson.id);
+        lessonEl.className = `lesson-item ${
+          this.currentLesson?.id === lesson.id ? "active" : ""
+        } ${isCompleted ? "completed" : ""}`;
+        
+        lessonEl.innerHTML = `
+          <input 
+            type="checkbox" 
+            class="lesson-checkbox" 
+            ${isCompleted ? "checked" : ""}
+            data-lesson-id="${lesson.id}"
+            aria-label="Mark as completed"
+          />
+          <div class="lesson-content">
+            <div class="lesson-title">${this.escapeHtml(lesson.title)}</div>
+            <div class="lesson-meta">${lesson.level} • ${lesson.category}</div>
+          </div>
+        `;
+        
+        // Checkbox handler
+        const checkbox = lessonEl.querySelector(".lesson-checkbox");
+        checkbox.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.toggleLessonCompleted(lesson.id, checkbox.checked);
+        });
+
+        // Lesson click handler
+        lessonEl.addEventListener("click", () => this.selectLesson(lesson.id));
+        this.lessonListEl.appendChild(lessonEl);
+      });
+    });
+
+    this.updateStats();
+  }
+
+  /**
+   * Toggle lesson completed status
+   */
+  toggleLessonCompleted(lessonId, completed) {
+    this.stateManager?.markLessonCompleted(lessonId, completed);
+    this.renderLessons();
+  }
+
+  /**
+   * Select a lesson and load its content
+   */
+  async selectLesson(lessonId) {
+    const lesson = this.lessons.find((l) => l.id === lessonId);
+    if (!lesson) return;
+
+    this.currentLesson = lesson;
+    this.stateManager?.setCurrentLessonId(lessonId);
+
+    // Update UI
+    this.lessonTitleEl.textContent = lesson.title;
+    this.lessonMetaEl.textContent = `${lesson.level} • ${lesson.category}`;
+    this.renderLessons(); // Re-render to highlight active lesson
+
+    // Load audio with resume capability
+    this.audioPlayer?.reset();
+    if (lesson.audio) {
+      const savedTime = this.stateManager?.getAudioTime(lessonId) || 0;
+      this.audioPlayer?.loadAudio(lesson.audio, lessonId, savedTime);
+    }
+
+    // Load subtitle for auto-highlight if available
+    if (this.subtitleSync && lesson.code) {
+      this.loadSubtitleForLesson(lesson.code);
+    }
+
+    // Load transcript from local HTML if available, otherwise fallback to remote.
+    this.loadTranscriptForLesson(lesson);
+  }
+
+  /**
+   * Load subtitle file and setup auto-highlight
+   */
+  async loadSubtitleForLesson(lessonCode) {
+    if (!this.subtitleSync) return;
+
+    const loaded = await this.subtitleSync.loadSubtitle(lessonCode);
+    
+    if (loaded) {
+      console.log(`✅ Subtitle loaded for lesson ${lessonCode}`);
+      
+      // Setup callback to highlight transcript lines
+      this.subtitleSync.onCueChange = (cue, cueIndex) => {
+        this.highlightTranscriptByCue(cue, cueIndex);
+      };
+    } else {
+      console.log(`ℹ️ No subtitle available for lesson ${lessonCode}`);
+      this.subtitleSync.onCueChange = null;
+    }
+  }
+
+  /**
+   * Highlight transcript line based on subtitle cue
+   */
+  highlightTranscriptByCue(cue, cueIndex) {
+    // Remove previous highlights
+    this.transcriptLineElements.forEach((el) => {
+      el.classList.remove("highlight", "auto-highlight");
+    });
+
+    // Find matching transcript line by text similarity
+    let bestMatch = null;
+    let bestScore = 0;
+
+    this.transcriptLineElements.forEach((el, index) => {
+      const text = el.querySelector(".transcript-text")?.textContent || "";
+      const score = this.calculateTextSimilarity(text, cue.text);
+      
+      if (score > bestScore && score > 0.4) {
+        bestScore = score;
+        bestMatch = { el, index, score };
+      }
+    });
+
+    if (bestMatch) {
+      bestMatch.el.classList.add("highlight", "auto-highlight");
+      // Scroll into view smoothly
+      bestMatch.el.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }
+
+  /**
+   * Calculate text similarity (simple word overlap)
+   */
+  calculateTextSimilarity(text1, text2) {
+    const words1 = new Set(
+      text1.toLowerCase().replace(/[^\w\s]/g, "").split(/\s+/)
+    );
+    const words2 = new Set(
+      text2.toLowerCase().replace(/[^\w\s]/g, "").split(/\s+/)
+    );
+
+    const intersection = new Set([...words1].filter((w) => words2.has(w)));
+    const union = new Set([...words1, ...words2]);
+
+    return union.size > 0 ? intersection.size / union.size : 0;
+  }
+
+  /**
+   * Try to load a prettified transcript from local /transcript HTML,
+   * fallback to remote script via iframe if not found.
+   */
+  async loadTranscriptForLesson(lesson) {
+    const code =
+      lesson.code ||
+      (typeof lesson.id === "number"
+        ? String(lesson.id).padStart(4, "0")
+        : "");
+
+    const localUrl = code
+      ? `transcript/englishpod_${code}.html`
+      : null;
+
+    if (!localUrl) {
+      this.loadScriptIframe(lesson.script, lesson.title);
+      return;
+    }
+
+    try {
+      const res = await fetch(localUrl);
+      if (!res.ok) {
+        throw new Error("Local transcript not found");
+      }
+      const html = await res.text();
+      this.renderTranscriptHtml(html, lesson);
+    } catch {
+      this.loadScriptIframe(lesson.script, lesson.title);
+    }
+  }
+
+  /**
+   * Load script HTML using iframe (remote archive.org fallback).
+   */
+  loadScriptIframe(scriptUrl, title) {
+    if (!scriptUrl) {
+      this.scriptContentEl.innerHTML =
+        '<p class="error">No transcript available for this lesson.</p>';
+      return;
+    }
+
+    this.scriptContentEl.innerHTML = "";
+    const iframe = document.createElement("iframe");
+    iframe.className = "script-iframe";
+    iframe.src = scriptUrl;
+    iframe.title = title || "Lesson transcript";
+    iframe.loading = "lazy";
+    this.scriptContentEl.appendChild(iframe);
+  }
+
+  /**
+   * Render cleaned transcript UI from local HTML content.
+   */
+  renderTranscriptHtml(rawHtml, lesson) {
+    // Clear previous transcript line references
+    this.transcriptLineElements = [];
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(rawHtml, "text/html");
+
+    const tables = doc.querySelectorAll("table");
+    const headings = doc.querySelectorAll("h1");
+
+    const dialogueTable = tables[0] || null;
+    const keyVocabTable = tables[1] || null;
+    const suppVocabTable = tables[2] || null;
+
+    const transcriptEl = document.createElement("article");
+    transcriptEl.className = "transcript";
+
+    // Dialogue section
+    if (dialogueTable) {
+      const dialogueSection = document.createElement("section");
+      dialogueSection.className = "transcript-section";
+
+      const h = document.createElement("h4");
+      h.className = "transcript-heading";
+      h.textContent =
+        headings[0]?.textContent?.trim() || "Dialogue";
+      dialogueSection.appendChild(h);
+
+      const linesContainer = document.createElement("div");
+      linesContainer.className = "transcript-dialogue";
+
+      dialogueTable.querySelectorAll("tr").forEach((row) => {
+        const cells = row.querySelectorAll("td");
+        if (cells.length < 2) return;
+        const speakerRaw = cells[0].textContent || "";
+        const text = cells[1].textContent.trim();
+        if (!text) return;
+
+        const speaker = speakerRaw.replace(":", "").trim();
+
+        const lineEl = document.createElement("div");
+        lineEl.className = "transcript-line";
+
+        const speakerEl = document.createElement("span");
+        speakerEl.className = "transcript-speaker";
+        speakerEl.textContent = speaker || "·";
+
+        const textEl = document.createElement("p");
+        textEl.className = "transcript-text";
+        textEl.textContent = text;
+
+        lineEl.appendChild(speakerEl);
+        lineEl.appendChild(textEl);
+
+        // Click to highlight paragraph
+            lineEl.addEventListener("click", () => {
+              document.querySelectorAll(".transcript-line").forEach((l) => {
+                l.classList.remove("highlight", "auto-highlight");
+              });
+              lineEl.classList.add("highlight");
+            });
+
+            // Store reference for auto-highlight
+            this.transcriptLineElements.push(lineEl);
+
+            linesContainer.appendChild(lineEl);
+      });
+
+      dialogueSection.appendChild(linesContainer);
+      transcriptEl.appendChild(dialogueSection);
+    }
+
+    // Helper to build vocab sections
+    const buildVocabSection = (table, titleText) => {
+      if (!table) return null;
+      const section = document.createElement("section");
+      section.className = "transcript-section";
+
+      const h = document.createElement("h4");
+      h.className = "transcript-heading";
+      h.textContent = titleText;
+      section.appendChild(h);
+
+      const grid = document.createElement("div");
+      grid.className = "vocab-grid";
+
+      table.querySelectorAll("tr").forEach((row) => {
+        const cells = row.querySelectorAll("td");
+        if (cells.length < 3) return;
+        const term = cells[0].textContent.trim();
+        const part = cells[1].textContent.trim();
+        const meaning = cells[2].textContent.trim();
+        if (!term || !meaning) return;
+
+        const item = document.createElement("div");
+        item.className = "vocab-item";
+
+        const termEl = document.createElement("div");
+        termEl.className = "vocab-term";
+        termEl.textContent = term;
+
+        const metaEl = document.createElement("div");
+        metaEl.className = "vocab-meta";
+        metaEl.textContent = part;
+
+        const meaningEl = document.createElement("div");
+        meaningEl.className = "vocab-meaning";
+        meaningEl.textContent = meaning;
+
+        item.appendChild(termEl);
+        if (part) item.appendChild(metaEl);
+        item.appendChild(meaningEl);
+        grid.appendChild(item);
+      });
+
+      section.appendChild(grid);
+      return section;
+    };
+
+    const keyTitle =
+      headings[1]?.textContent?.trim() || "Key Vocabulary";
+    const suppTitle =
+      headings[2]?.textContent?.trim() || "Supplementary Vocabulary";
+
+    const keySection = buildVocabSection(
+      keyVocabTable,
+      keyTitle
+    );
+    const suppSection = buildVocabSection(
+      suppVocabTable,
+      suppTitle
+    );
+
+    if (keySection) transcriptEl.appendChild(keySection);
+    if (suppSection) transcriptEl.appendChild(suppSection);
+
+    // Fallback: if nothing was built, show a simple message.
+    if (!transcriptEl.children.length) {
+      transcriptEl.textContent =
+        "Transcript format not recognized for this lesson.";
+    }
+
+    this.scriptContentEl.innerHTML = "";
+    this.scriptContentEl.appendChild(transcriptEl);
+  }
+
+  /**
+   * Escape HTML to prevent XSS
+   */
+  escapeHtml(text) {
+    const map = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    };
+    return String(text).replace(/[&<>"']/g, (m) => map[m]);
+  }
+}
+
+// Initialize app when DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+  new EnglishPodApp();
+});

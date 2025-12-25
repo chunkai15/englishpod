@@ -1,0 +1,22 @@
+{
+    "name": "englishpod-player",
+    "version": "1.0.0",
+    "description": "A lightweight web application for learning English through EnglishPod lessons",
+    "type": "module",
+    "scripts": {
+        "dev": "npx serve .",
+        "build": "echo 'Static site - no build needed'",
+        "start": "npx serve .",
+        "generate-subtitles": "node generate-subtitles.js"
+    },
+    "keywords": ["english", "learning", "podcast", "education"],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "axios": "^1.13.2",
+        "cheerio": "^1.1.2"
+    },
+    "devDependencies": {
+        "serve": "^14.2.1"
+    }
+}

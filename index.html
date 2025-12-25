@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Pod - Learn English Through Podcasts</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Navigation Header -->
+    <header class="header">
+      <div class="header-content">
+        <div class="logo">
+          <h1>English Pod</h1>
+          <p class="tagline">Learn English through real conversations</p>
+        </div>
+        <div class="header-stats">
+          <span id="totalLessons">0 lessons</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+      <!-- Sidebar with Lessons -->
+      <aside class="sidebar">
+        <div class="filters-section">
+          <h3>Filter by Level</h3>
+          <select id="levelFilter" class="filter-select">
+            <option value="">All Levels</option>
+          </select>
+
+          <h3>Filter by Category</h3>
+          <select id="categoryFilter" class="filter-select">
+            <option value="">All Categories</option>
+          </select>
+
+          <button id="clearFilters" class="btn-clear">Clear Filters</button>
+        </div>
+
+        <div class="lessons-header">
+          <h3>Lessons</h3>
+          <span id="lessonCount" class="lesson-count">0</span>
+        </div>
+
+        <div id="lessonList" class="lesson-list">
+          <p class="loading">Loading lessons...</p>
+        </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <main class="content">
+        <!-- Player Section -->
+        <section class="player-section">
+          <div class="lesson-header">
+            <h2 id="lessonTitle">Select a lesson to begin</h2>
+            <p id="lessonMeta" class="lesson-meta-info"></p>
+          </div>
+
+          <div class="audio-player">
+            <audio id="audioPlayer" preload="none">
+              <source type="audio/mpeg">
+              Your browser does not support the audio element.
+            </audio>
+
+            <div class="player-controls">
+              <button id="playBtn" class="btn-control btn-play" aria-label="Play">
+                <span class="icon">▶</span>
+              </button>
+              <button id="pauseBtn" class="btn-control btn-pause" aria-label="Pause">
+                <span class="icon">⏸</span>
+              </button>
+              <button
+                id="loopBtn"
+                class="btn-control btn-loop"
+                aria-label="Toggle loop"
+                title="Loop this lesson"
+              >
+                <span class="icon">⟲</span>
+              </button>
+              <div class="speed-control" aria-label="Playback speed">
+                <label for="playbackRate" class="speed-label">Speed</label>
+                <select id="playbackRate" class="speed-select">
+                  <option value="0.5">0.5×</option>
+                  <option value="0.75">0.75×</option>
+                  <option value="1" selected>1×</option>
+                  <option value="1.25">1.25×</option>
+                  <option value="1.5">1.5×</option>
+                </select>
+              </div>
+              <div class="volume-control" aria-label="Volume">
+                <span class="volume-label">Vol</span>
+                <input
+                  id="volumeSlider"
+                  class="volume-slider"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="40"
+                />
+              </div>
+            </div>
+
+            <div class="progress-section">
+              <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+                <input id="progressSlider" type="range" min="0" max="100" value="0" class="progress-slider" aria-label="Seek">
+              </div>
+              <div class="time-display">
+                <span id="currentTime">0:00</span>
+                <span class="separator">/</span>
+                <span id="duration">0:00</span>
+              </div>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+          </div>
+        </section>
+
+        <!-- Script/Transcript Section -->
+        <section class="script-section">
+          <div class="script-header">
+            <h3>Transcript</h3>
+            <button
+              id="toggleTranscript"
+              class="script-toggle-btn"
+              type="button"
+            >
+              Hide
+            </button>
+          </div>
+          <div id="scriptContent" class="script-content">
+            <p class="placeholder">Select a lesson to view the transcript</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Legal Notice -->
+    <footer class="footer">
+      <div class="footer-content">
+        <p class="footer-notice">
+          <strong>For personal learning only.</strong> 
+          Audio and transcripts are streamed from 
+          <a href="https://archive.org/details/englishpod_all" target="_blank" rel="noopener noreferrer">Internet Archive</a>.
+          All content belongs to their respective owners.
+        </p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="js/state.js"></script>
+  <script src="js/subtitle-sync.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+
+
