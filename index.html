@@ -34,17 +34,25 @@
       <!-- Sidebar with Lessons -->
       <aside class="sidebar">
         <div class="filters-section">
-          <h3>Filter by Level</h3>
-          <select id="levelFilter" class="filter-select">
-            <option value="">All Levels</option>
-          </select>
-
-          <h3>Filter by Category</h3>
-          <select id="categoryFilter" class="filter-select">
-            <option value="">All Categories</option>
-          </select>
-
-          <button id="clearFilters" class="btn-clear">Clear Filters</button>
+          <button id="toggleFilters" class="filters-toggle" aria-label="Toggle filters">
+            <span class="filters-toggle-text">Filters</span>
+            <span class="filters-toggle-icon">▼</span>
+          </button>
+          <div id="filtersContent" class="filters-content">
+            <div class="filter-group">
+              <label for="levelFilter" class="filter-label">Level</label>
+              <select id="levelFilter" class="filter-select">
+                <option value="">All Levels</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="sourceFilter" class="filter-label">Source</label>
+              <select id="sourceFilter" class="filter-select">
+                <option value="">All Sources</option>
+              </select>
+            </div>
+            <button id="clearFilters" class="btn-clear">Clear</button>
+          </div>
         </div>
 
         <div class="lessons-header">
@@ -59,13 +67,28 @@
 
       <!-- Main Content Area -->
       <main class="content">
+        <!-- Script/Transcript Section -->
+        <section class="script-section">
+          <div class="script-header">
+            <div class="lesson-header">
+              <h2 id="lessonTitle">Select a lesson to begin</h2>
+              <p id="lessonMeta" class="lesson-meta-info"></p>
+            </div>
+            <button
+              id="toggleTranscript"
+              class="script-toggle-btn"
+              type="button"
+            >
+              Hide
+            </button>
+          </div>
+          <div id="scriptContent" class="script-content">
+            <p class="placeholder">Select a lesson to view the transcript</p>
+          </div>
+        </section>
+
         <!-- Player Section -->
         <section class="player-section">
-          <div class="lesson-header">
-            <h2 id="lessonTitle">Select a lesson to begin</h2>
-            <p id="lessonMeta" class="lesson-meta-info"></p>
-          </div>
-
           <div class="audio-player">
             <audio id="audioPlayer" preload="none">
               <source type="audio/mpeg">
@@ -123,23 +146,6 @@
             </div>
 
             <div id="errorMessage" class="error-message" style="display: none;"></div>
-          </div>
-        </section>
-
-        <!-- Script/Transcript Section -->
-        <section class="script-section">
-          <div class="script-header">
-            <h3>Transcript</h3>
-            <button
-              id="toggleTranscript"
-              class="script-toggle-btn"
-              type="button"
-            >
-              Hide
-            </button>
-          </div>
-          <div id="scriptContent" class="script-content">
-            <p class="placeholder">Select a lesson to view the transcript</p>
           </div>
         </section>
       </main>

@@ -15,8 +15,10 @@ class EnglishPodApp {
     this.lessonMetaEl = document.getElementById("lessonMeta");
     this.scriptContentEl = document.getElementById("scriptContent");
     this.levelFilterEl = document.getElementById("levelFilter");
-    this.categoryFilterEl = document.getElementById("categoryFilter");
+    this.sourceFilterEl = document.getElementById("sourceFilter");
     this.clearFiltersBtn = document.getElementById("clearFilters");
+    this.toggleFiltersBtn = document.getElementById("toggleFilters");
+    this.filtersContent = document.getElementById("filtersContent");
     this.lessonCountEl = document.getElementById("lessonCount");
     this.totalLessonsEl = document.getElementById("totalLessons");
     this.toggleTranscriptBtn = document.getElementById("toggleTranscript");
@@ -211,8 +213,11 @@ class EnglishPodApp {
    */
   setupEventListeners() {
     this.levelFilterEl.addEventListener("change", () => this.filterLessons());
-    this.categoryFilterEl.addEventListener("change", () => this.filterLessons());
+    this.sourceFilterEl.addEventListener("change", () => this.filterLessons());
     this.clearFiltersBtn.addEventListener("click", () => this.clearAllFilters());
+    if (this.toggleFiltersBtn) {
+      this.toggleFiltersBtn.addEventListener("click", () => this.toggleFilters());
+    }
     if (this.toggleTranscriptBtn) {
       this.toggleTranscriptBtn.addEventListener("click", () =>
         this.toggleTranscript()
@@ -221,11 +226,21 @@ class EnglishPodApp {
   }
 
   /**
+   * Toggle filters section visibility
+   */
+  toggleFilters() {
+    if (!this.toggleFiltersBtn || !this.filtersContent) return;
+    
+    const isActive = this.filtersContent.classList.toggle("active");
+    this.toggleFiltersBtn.classList.toggle("active", isActive);
+  }
+
+  /**
    * Clear all active filters
    */
   clearAllFilters() {
     this.levelFilterEl.value = "";
-    this.categoryFilterEl.value = "";
+    this.sourceFilterEl.value = "";
     this.filterLessons();
   }
 
@@ -242,25 +257,69 @@ class EnglishPodApp {
   }
 
   /**
+   * Get source for a lesson
+   */
+  getLessonSource(lesson) {
+    if (lesson.source) {
+      return lesson.source;
+    }
+    // If has code field, it's EnglishPod
+    if (lesson.code) {
+      return "EnglishPod";
+    }
+    // If id starts with LEP_, it's LEP
+    if (typeof lesson.id === "string" && lesson.id.startsWith("LEP_")) {
+      return "Luke's English Podcast";
+    }
+    return "EnglishPod"; // Default fallback
+  }
+
+  /**
    * Populate filter dropdowns from lesson data
    */
   populateFilters() {
-    // Get unique levels
-    const levels = [...new Set(this.lessons.map((l) => l.level))].sort();
-    levels.forEach((level) => {
+    // Define level order for proper sorting
+    const levelOrder = [
+      "Elementary",
+      "Pre-Intermediate",
+      "Intermediate",
+      "Upper-Intermediate",
+      "Advanced",
+      "Business English",
+      "Podcast",
+      "Unknown"
+    ];
+
+    // Get unique levels and sort by predefined order
+    const levels = [...new Set(this.lessons.map((l) => l.level))];
+    const sortedLevels = levels.sort((a, b) => {
+      const indexA = levelOrder.indexOf(a);
+      const indexB = levelOrder.indexOf(b);
+      // If both in order, sort by index
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      // If only one in order, prioritize it
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      // If neither in order, alphabetical
+      return a.localeCompare(b);
+    });
+
+    sortedLevels.forEach((level) => {
       const option = document.createElement("option");
       option.value = level;
       option.textContent = level;
       this.levelFilterEl.appendChild(option);
     });
 
-    // Get unique categories
-    const categories = [...new Set(this.lessons.map((l) => l.category))].sort();
-    categories.forEach((category) => {
+    // Get unique sources
+    const sources = [...new Set(this.lessons.map((l) => this.getLessonSource(l)))].sort();
+    sources.forEach((source) => {
       const option = document.createElement("option");
-      option.value = category;
-      option.textContent = category;
-      this.categoryFilterEl.appendChild(option);
+      option.value = source;
+      option.textContent = source;
+      this.sourceFilterEl.appendChild(option);
     });
   }
 
@@ -269,10 +328,19 @@ class EnglishPodApp {
    */
   filterLessons() {
     const level = this.levelFilterEl.value;
-    const category = this.categoryFilterEl.value;
+    const source = this.sourceFilterEl.value;
+
+    // Auto-expand filters if any filter is active
+    if ((level || source) && this.filtersContent && !this.filtersContent.classList.contains("active")) {
+      this.filtersContent.classList.add("active");
+      if (this.toggleFiltersBtn) {
+        this.toggleFiltersBtn.classList.add("active");
+      }
+    }
 
     this.filteredLessons = this.lessons.filter((lesson) => {
-      return (!level || lesson.level === level) && (!category || lesson.category === category);
+      const lessonSource = this.getLessonSource(lesson);
+      return (!level || lesson.level === level) && (!source || lessonSource === source);
     });
 
     this.renderLessons();
@@ -302,6 +370,18 @@ class EnglishPodApp {
       return;
     }
 
+    // Define level order for proper sorting (same as in populateFilters)
+    const levelOrder = [
+      "Elementary",
+      "Pre-Intermediate",
+      "Intermediate",
+      "Upper-Intermediate",
+      "Advanced",
+      "Business English",
+      "Podcast",
+      "Unknown"
+    ];
+
     // Group lessons by level
     const grouped = {};
     this.filteredLessons.forEach((lesson) => {
@@ -312,8 +392,42 @@ class EnglishPodApp {
       grouped[level].push(lesson);
     });
 
-    // Render each group
-    Object.keys(grouped).sort().forEach((level) => {
+    // Sort lessons within each group by id (for consistent ordering)
+    Object.keys(grouped).forEach((level) => {
+      grouped[level].sort((a, b) => {
+        // If both have numeric IDs, sort numerically
+        if (typeof a.id === 'number' && typeof b.id === 'number') {
+          return a.id - b.id;
+        }
+        // If both have string IDs starting with LEP_, sort by number
+        if (typeof a.id === 'string' && a.id.startsWith('LEP_') && 
+            typeof b.id === 'string' && b.id.startsWith('LEP_')) {
+          const numA = parseInt(a.id.replace('LEP_', '')) || 0;
+          const numB = parseInt(b.id.replace('LEP_', '')) || 0;
+          return numA - numB;
+        }
+        // Otherwise, sort by id as string
+        return String(a.id).localeCompare(String(b.id));
+      });
+    });
+
+    // Sort groups by levelOrder (same logic as populateFilters)
+    const sortedLevels = Object.keys(grouped).sort((a, b) => {
+      const indexA = levelOrder.indexOf(a);
+      const indexB = levelOrder.indexOf(b);
+      // If both in order, sort by index
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      // If only one in order, prioritize it
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      // If neither in order, alphabetical
+      return a.localeCompare(b);
+    });
+
+    // Render each group in sorted order
+    sortedLevels.forEach((level) => {
       const groupHeader = document.createElement("div");
       groupHeader.className = "lesson-group-header";
       groupHeader.textContent = level;
@@ -326,6 +440,7 @@ class EnglishPodApp {
           this.currentLesson?.id === lesson.id ? "active" : ""
         } ${isCompleted ? "completed" : ""}`;
         
+        const lessonSource = this.getLessonSource(lesson);
         lessonEl.innerHTML = `
           <input 
             type="checkbox" 
@@ -336,7 +451,7 @@ class EnglishPodApp {
           />
           <div class="lesson-content">
             <div class="lesson-title">${this.escapeHtml(lesson.title)}</div>
-            <div class="lesson-meta">${lesson.level} • ${lesson.category}</div>
+            <div class="lesson-meta">${lesson.level} • ${lessonSource}</div>
           </div>
         `;
         
@@ -376,7 +491,8 @@ class EnglishPodApp {
 
     // Update UI
     this.lessonTitleEl.textContent = lesson.title;
-    this.lessonMetaEl.textContent = `${lesson.level} • ${lesson.category}`;
+    const lessonSource = this.getLessonSource(lesson);
+    this.lessonMetaEl.textContent = `${lesson.level} • ${lessonSource}`;
     this.renderLessons(); // Re-render to highlight active lesson
 
     // Auto-scroll to content on mobile
